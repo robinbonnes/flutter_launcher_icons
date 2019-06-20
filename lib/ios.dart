@@ -71,13 +71,8 @@ void overwriteDefaultIcons(IosIconTemplate template, Image image) {
 }
 
 void saveNewIcons(IosIconTemplate template, Image image, String newCatalogName, String newIconName) {
-  String newIconFolder = iosAssetFolder + newCatalogName + ".appiconset/";
-  Image newFile;
-  if (image.width >= icon.size)
-    newFile = copyResize(image, icon.size, icon.size, AVERAGE);
-  else
-    newFile = copyResize(image, icon.size, icon.size, LINEAR);
-
+  final String newIconFolder = iosAssetFolder + newCatalogName + ".appiconset/";
+  final Image newFile;
   File(newIconFolder + newIconName + icon.name + ".png")
       .create(recursive: true)
       .then((File file) {
