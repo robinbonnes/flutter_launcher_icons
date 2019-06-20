@@ -72,8 +72,8 @@ void overwriteDefaultIcons(IosIconTemplate template, Image image) {
 
 void saveNewIcons(IosIconTemplate template, Image image, String newCatalogName, String newIconName) {
   final String newIconFolder = iosAssetFolder + newCatalogName + ".appiconset/";
-  final Image newFile;
-  File(newIconFolder + newIconName + icon.name + ".png")
+  final Image newFile = createResizedImage(template, image);
+  File(newIconFolder + newIconName + template.name + ".png")
       .create(recursive: true)
       .then((File file) {
     file.writeAsBytesSync(encodePng(newFile));
