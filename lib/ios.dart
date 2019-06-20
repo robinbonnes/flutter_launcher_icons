@@ -36,8 +36,7 @@ createIcons(config, String flavor) {
   if (flavor != null) {
     final String catalogName = "AppIcon-$flavor";
     print("Building iOS launcher icon for $flavor");
-    iosIcons.forEach((IosIcon icon) => saveNewIcons(icon, image, catalogName, iosDefaultIconName));
-    iosIcons.forEach((IosIconTemplate template) => saveNewIcons(template, image, catalogName, newIconName));
+    iosIcons.forEach((IosIconTemplate template) => saveNewIcons(template, image, catalogName, iosDefaultIconName));
     iconName = iosDefaultIconName;
     changeIosLauncherIcon(catalogName, flavor);
     modifyContentsFile(catalogName, iconName);
@@ -47,7 +46,7 @@ createIcons(config, String flavor) {
   else if (iosConfig is String) {
     final String newIconName = iosConfig;
     print("Adding new iOS launcher icon");
-    iosIcons.forEach((IosIconTemplate template) => saveNewIcons(template, image, newIconName));
+    iosIcons.forEach((IosIconTemplate template) => saveNewIcons(template, image, newIconName, newIconName));
     iconName = newIconName;
     changeIosLauncherIcon(iconName, flavor);
     modifyContentsFile(iconName, iconName);
