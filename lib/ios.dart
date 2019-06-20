@@ -28,20 +28,29 @@ List<IosIconTemplate> iosIcons = [
   IosIconTemplate(name: '-1024x1024@1x', size: 1024),
 ];
 
-void createIcons(Map config) {
+createIcons(config, String flavor) {
   final String filePath = config['image_path_ios'] ?? config['image_path'];
   final Image image = decodeImage(File(filePath).readAsBytesSync());
   String iconName;
   dynamic iosConfig = config['ios'];
+  if (flavor != null) {
+    final String catalogName = "AppIcon-$flavor";
+    print("Building iOS launcher icon for $flavor");
+    iosIcons.forEach((IosIcon icon) => saveNewIcons(icon, image, catalogName, iosDefaultIconName));
+    iosIcons.forEach((IosIconTemplate template) => saveNewIcons(template, image, catalogName, newIconName));
+    iconName = iosDefaultIconName;
+    changeIosLauncherIcon(catalogName, flavor);
+    modifyContentsFile(catalogName, iconName);
+  }
   // If the IOS configuration is a string then the user has specified a new icon to be created
   // and for the old icon file to be kept
-  if (iosConfig is String) {
+  else if (iosConfig is String) {
     final String newIconName = iosConfig;
-    print('Adding new iOS launcher icon');
+    print("Adding new iOS launcher icon");
     iosIcons.forEach((IosIconTemplate template) => saveNewIcons(template, image, newIconName));
     iconName = newIconName;
-    changeIosLauncherIcon(iconName);
-    modifyContentsFile(iconName);
+    changeIosLauncherIcon(iconName, flavor);
+    modifyContentsFile(iconName, iconName);
   }
   // Otherwise the user wants the new icon to use the default icons name and
   // update config file to use it
@@ -49,7 +58,7 @@ void createIcons(Map config) {
     print('Overwriting default iOS launcher icon with new icon');
     iosIcons.forEach((IosIconTemplate template) => overwriteDefaultIcons(template, image));
     iconName = iosDefaultIconName;
-    changeIosLauncherIcon('AppIcon');
+    changeIosLauncherIcon("AppIcon", flavor);
   }
 }
 
@@ -62,13 +71,15 @@ void overwriteDefaultIcons(IosIconTemplate template, Image image) {
     ..writeAsBytesSync(encodePng(newFile));
 }
 
-/// Note: Do not change interpolation unless you end up with better results (see issue for result when using cubic
-/// interpolation)
-/// https://github.com/fluttercommunity/flutter_launcher_icons/issues/101#issuecomment-495528733
-void saveNewIcons(IosIconTemplate template, Image image, String newIconName) {
-  final String newIconFolder = iosAssetFolder + newIconName + '.appiconset/';
-  final Image newFile = createResizedImage(template, image);
-  File(newIconFolder + newIconName + template.name + '.png')
+void saveNewIcons(IosIconTemplate template, Image image, String newCatalogName, String newIconName) {
+  String newIconFolder = iosAssetFolder + newCatalogName + ".appiconset/";
+  Image newFile;
+  if (image.width >= icon.size)
+    newFile = copyResize(image, icon.size, icon.size, AVERAGE);
+  else
+    newFile = copyResize(image, icon.size, icon.size, LINEAR);
+
+  File(newIconFolder + newIconName + icon.name + ".png")
       .create(recursive: true)
       .then((File file) {
     file.writeAsBytesSync(encodePng(newFile));
@@ -83,25 +94,43 @@ Image createResizedImage(IosIconTemplate template, Image image) {
   }
 }
 
-Future<void> changeIosLauncherIcon(String iconName) async {
+Future<void> changeIosLauncherIcon(String iconName, String flavor) async {
   File iOSConfigFile = File(iosConfigFile);
   List<String> lines = await iOSConfigFile.readAsLines();
+
+  bool onConfigurationSection = false;
+  String currentConfig;
   for (var x = 0; x < lines.length; x++) {
     String line = lines[x];
-    if (line.contains('ASSETCATALOG')) {
-      line = line.replaceAll(RegExp('\=(.*);'), '= ' + iconName + ';');
-      lines[x] = line;
-      lines[lines.length - 1] = "}\n";
+
+    if (line.contains("/* Begin XCBuildConfiguration section */")) {
+      onConfigurationSection = true;
+    }
+    if (line.contains("/* End XCBuildConfiguration section */")) {
+      onConfigurationSection = false;
+    }
+    if (onConfigurationSection) {
+      var match = RegExp(".*/\\* (.*)\.xcconfig \\*/;").firstMatch(line);
+      if (match != null) {
+        currentConfig = match.group(1);
+      }
+
+      if (currentConfig != null
+          && (flavor == null || currentConfig.contains("-$flavor"))
+          && line.contains("ASSETCATALOG")) {
+        lines[x] = line.replaceAll(RegExp('\=(.*);'), "= $iconName;");
+      }
     }
   }
+
   final String entireFile = lines.join("\n");
   iOSConfigFile.writeAsString(entireFile);
 }
 
-/// Create the Contents.json file
-void modifyContentsFile(String newIconName) {
-  final String newIconFolder =
-      iosAssetFolder + newIconName + '.appiconset/Contents.json';
+// Create the Contents.json file
+modifyContentsFile(String catalogName, String newIconName) {
+  String newIconFolder =
+      iosAssetFolder + catalogName + ".appiconset/Contents.json";
   File(newIconFolder).create(recursive: true).then((File contentsJsonFile) {
     final String contentsFileContent = generateContentsFileAsString(newIconName);
     contentsJsonFile.writeAsString(contentsFileContent);
